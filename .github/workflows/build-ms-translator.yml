@@ -1,0 +1,45 @@
+name: Build Microsoft Translator APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Join patched APK
+        run: |
+          cat Fanqie-MSTranslator.part00 Fanqie-MSTranslator.part01 > patched.apk
+          unzip -t patched.apk >/dev/null
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install build tools
+        run: |
+          yes | sdkmanager "build-tools;35.0.1"
+
+      - name: Generate signing key
+        run: |
+          keytool -genkeypair -v             -keystore test-release.keystore             -storepass android             -keypass android             -alias fanqie             -keyalg RSA             -keysize 2048             -validity 10000             -dname "CN=Fanqie MS Translator, O=TEST"
+
+      - name: Zipalign
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.1/zipalign" -p -f 4 patched.apk aligned.apk
+
+      - name: Sign APK
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" sign             --ks test-release.keystore             --ks-pass pass:android             --key-pass pass:android             --out FanqieNovelDownloader-MSTranslator.apk             aligned.apk
+
+      - name: Verify APK
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose FanqieNovelDownloader-MSTranslator.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FanqieNovelDownloader-MSTranslator
+          path: FanqieNovelDownloader-MSTranslator.apk
